@@ -53,6 +53,14 @@ func main() {
 	// Удаление по условию
 	db.Where("id = ?", 5).Delete(&User{})
 
+
+	// Пример транзакции:
+	err = ExampleTransaction(db)
+	if err != nil {
+		return
+	}
+
+
 	var users []User
 	// Поиск всех записей:
 	db.Find(&users)
@@ -60,6 +68,10 @@ func main() {
 
 	// Поиск нескольких записей с условиями:
 	db.Where("age > ?", 18).Find(&users)
+	fmt.Println(users)
+
+	// Поиск нескольких записей по списку:
+	db.Where("id IN (?)", []uint{1, 4}).Find(&users)
 	fmt.Println(users)
 
 	// Лимитированный поиск записей:
@@ -83,5 +95,54 @@ func main() {
 	db.Model(User{}).Select("name, email").Find(&resultMap)
 	fmt.Println(resultMap)
 
+	// общеее количество записей в таблице users
+	var count int64
+	db.Model(&User{}).Count(&count)
+	fmt.Println("Всего человек:", count)
+
+	// Средний возраст
+	var averageAge float64
+	db.Model(&User{}).Select("AVG(age) as average_age").Scan(&averageAge)
+	fmt.Println("Средний возраст:", averageAge)
+
+	// Минимальный возраст
+	var minAge float64
+	db.Model(&User{}).Select("MIN(age) as min_age").Scan(&minAge)
+	fmt.Println("Самый молодой:", minAge)
+
+	//Пагинация
+	db.Order("id").Limit(2).Offset(2).Find(&users)
+	fmt.Println(users)
+
 	fmt.Println("END")
+}
+
+func ExampleTransaction(db *gorm.DB) error {
+	// Создаем новую транзакцию
+	tx := db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	// Примеры SQL-запросов, которые будут выполнены внутри транзакции
+	user1 := User{Name: "User1", Email: "user1@example.com", Age: 19}
+	user2 := User{Name: "User2", Email: "user2@example.com", Age: 21}
+
+	// Вставляем записи в таблицу "users" внутри транзакции
+	if err := tx.Create(&user1).Error; err != nil {
+		// Если произошла ошибка, откатываем транзакцию
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Create(&user2).Error; err != nil {
+		// Если произошла ошибка, откатываем транзакцию
+		tx.Rollback()
+		return err
+	}
+
+	// Если все запросы прошли успешно, фиксируем транзакцию
+	tx.Commit()
+
+	return nil
 }

@@ -262,6 +262,133 @@ func usersPart(db *gorm.DB, userID uint) {
 
 }
 
+func usersByIDList(db *gorm.DB, idList []uint) []User {
+	var users []User
+	db.Where("id IN (?)", idList).Find(&users)
+
+	for _, user := range users {
+		fmt.Printf("ID: %d\n", user.ID)
+		fmt.Printf("Name: %s\n", user.Name)
+		fmt.Printf("Username: %s\n", user.Username)
+		fmt.Printf("Email: %s\n", user.Email)
+		fmt.Println("-------------")
+	}
+
+	return users
+}
+
+func exampleTransaction(db *gorm.DB) error {
+	// Создаем новую транзакцию
+	tx := db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	// Примеры SQL-запросов, которые будут выполнены внутри транзакции
+	user1 := User{Name: "User1", Email: "user1@example.com"}
+	user2 := User{Name: "User2", Email: "user2@example.com"}
+
+	// Вставляем записи в таблицу "users" внутри транзакции
+	if err := tx.Create(&user1).Error; err != nil {
+		// Если произошла ошибка, откатываем транзакцию
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Create(&user2).Error; err != nil {
+		// Если произошла ошибка, откатываем транзакцию
+		tx.Rollback()
+		return err
+	}
+
+	// Если все запросы прошли успешно, фиксируем транзакцию
+	tx.Commit()
+
+	return nil
+}
+
+func GetUsersWithNoPosts(db *gorm.DB) []User {
+	var users []User
+	subquery := db.Model(&Post{}).Select("DISTINCT user_id")
+
+	db.Not("id IN (?)", subquery).Find(&users)
+
+	for _, user := range users {
+		fmt.Printf("ID: %d\n", user.ID)
+		fmt.Printf("Name: %s\n", user.Name)
+		fmt.Printf("Username: %s\n", user.Username)
+		fmt.Printf("Email: %s\n", user.Email)
+		fmt.Println("-------------")
+	}
+
+	return users
+}
+
+type PostCountByUser struct {
+	UserID    uint `gorm:"column:user_id"`
+	PostCount int
+}
+
+func GetPostCountByUser(db *gorm.DB) []PostCountByUser {
+	var result []PostCountByUser
+
+	db.Model(&Post{}).
+		Select("user_id, COUNT(*) as post_count").
+		Group("user_id").
+		Scan(&result)
+
+	for _, user := range result {
+		fmt.Printf("user_id: %d\n", user.UserID)
+		fmt.Printf("post_count: %d\n", user.PostCount)
+		fmt.Println("-------------")
+	}
+
+	return result
+}
+
+type UserDataWithPostCount struct {
+	UserID    uint
+	Name      string
+	PostCount int
+}
+
+func GetUserDataWithPostCount(db *gorm.DB) []UserDataWithPostCount {
+	var result []UserDataWithPostCount
+
+	//db.Model(&Post{}).
+	//	Select("user_id, users.name, COUNT(*) as post_count").
+	//	Joins("JOIN users ON users.id = user_id").
+	//	Group("user_id, users.name").
+	//	Scan(&result)
+
+	db.Model(&User{}).
+		Select("users.id as user_id, users.name, COALESCE(COUNT(posts.id), 0) as post_count").
+		Joins("LEFT JOIN posts ON users.id = posts.user_id").
+		Group("users.id").
+		Scan(&result)
+
+	for _, user := range result {
+		fmt.Printf("user_id: %d\n", user.UserID)
+		fmt.Printf("user.name: %s\n", user.Name)
+		fmt.Printf("post_count: %d\n", user.PostCount)
+		fmt.Println("-------------")
+	}
+
+	return result
+}
+
+func GetUsersWithLimitAndOffset(db *gorm.DB, limit, offset int) []User {
+	var users []User
+	db.Order("name").Limit(limit).Offset(offset).Find(&users)
+
+	for _, user := range users {
+		fmt.Printf("user_id: %d\n", user.ID)
+		fmt.Printf("user.name: %s\n", user.Name)
+		fmt.Println("-------------")
+	}
+	return users
+}
+
 func main() {
 	// Настроим соединение с базой данных PostgreSQL
 	dsn := "host=localhost user=postgres password=root dbname=jsonplaceholder port=5432 sslmode=disable"
@@ -271,16 +398,28 @@ func main() {
 	}
 
 	//// Автомиграция - создание таблиц
-	// autoMigrate(db)
-
+	//autoMigrate(db)
+	//
 	//// загрузка данных
 	//seedUsers(db)
 	//seedPosts(db)
 	//seedComments(db)
 
+	//// Транзакция
+	//err = exampleTransaction(db)
+	//if err != nil {
+	//	return
+	//}
+
 	//// Чтение данных
-	usersALL(db)
-	usersPart(db, 1)
+	//usersALL(db)
+	//usersPart(db, 1)
+	//idList := []uint{1, 3, 5}
+	//usersByIDList(db, idList)
+	//GetUsersWithNoPosts(db) //выбрать пользователей, у которых нет постов,
+	//GetPostCountByUser(db)
+	//GetUserDataWithPostCount(db)
+	GetUsersWithLimitAndOffset(db, 2, 2)
 
 	fmt.Println("END")
 }
