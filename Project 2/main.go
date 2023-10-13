@@ -557,6 +557,24 @@ func FindMatchingEmails(db *gorm.DB) []UserCommentMatch {
 	return result
 }
 
+func FindCommentsByBodyKeyword(db *gorm.DB, keyword string) []Comment {
+	var comments []Comment
+
+	db.Model(&Comment{}).
+		Where("body LIKE ?", "%"+keyword+"%").
+		Find(&comments)
+
+	for _, comment := range comments {
+		fmt.Printf("comment.id: %d\n", comment.ID)
+		fmt.Printf("post.id: %d\n", comment.PostID)
+		fmt.Printf("comment.name: %s\n", comment.Name)
+		fmt.Printf("comment.body: %s\n", comment.Body)
+		fmt.Println("-------------")
+	}
+
+	return comments
+}
+
 func main() {
 	// Настроим соединение с базой данных PostgreSQL
 	dsn := "host=localhost user=postgres password=root dbname=jsonplaceholder port=5432 sslmode=disable"
@@ -590,10 +608,11 @@ func main() {
 	//GetUserDataWithPostCount(db)
 	//GetUsersWithLimitAndOffset(db, 2, 2)
 	//GetCommentsWithLimitAndOffset(db, 10, 20)
-	FindTop3PostsPerUser(db)
+	//FindTop3PostsPerUser(db)
 	//GetUserCommentCount(db)
 	//GetUserCommentPostData(db)
 	//FindMatchingEmails(db)
+	FindCommentsByBodyKeyword(db, "molestiae ")
 
 	fmt.Println("END")
 }
