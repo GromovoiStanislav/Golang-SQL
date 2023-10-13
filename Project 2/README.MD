@@ -1,4 +1,4 @@
-## CRUD example with Gorm
+## CRUD examples with Gorm
 
 setup:
 
