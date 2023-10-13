@@ -324,6 +324,31 @@ func GetUsersWithNoPosts(db *gorm.DB) []User {
 	return users
 }
 
+type UserWithoutPosts struct {
+	ID    uint
+	Name  string
+	Email string
+}
+
+func FindUsersWithoutPosts(db *gorm.DB) []UserWithoutPosts {
+	var result []UserWithoutPosts
+
+	subquery := db.Model(&Post{}).Select("DISTINCT user_id")
+	db.Model(&User{}).
+		Select("id, name, email").
+		Where("id NOT IN (?)", subquery).
+		Find(&result)
+
+	for _, user := range result {
+		fmt.Printf("ID: %d\n", user.ID)
+		fmt.Printf("Name: %s\n", user.Name)
+		fmt.Printf("Email: %s\n", user.Email)
+		fmt.Println("-------------")
+	}
+
+	return result
+}
+
 type PostCountByUser struct {
 	UserID    uint `gorm:"column:user_id"`
 	PostCount int
@@ -382,11 +407,154 @@ func GetUsersWithLimitAndOffset(db *gorm.DB, limit, offset int) []User {
 	db.Order("name").Limit(limit).Offset(offset).Find(&users)
 
 	for _, user := range users {
-		fmt.Printf("user_id: %d\n", user.ID)
+		fmt.Printf("user.id: %d\n", user.ID)
 		fmt.Printf("user.name: %s\n", user.Name)
 		fmt.Println("-------------")
 	}
 	return users
+}
+
+func GetCommentsWithLimitAndOffset(db *gorm.DB, limit, offset int) []Comment {
+	var comments []Comment
+
+	//db.Order("id").Limit(limit).Offset(offset).Find(&comments)
+
+	//or:
+	db.Model(&Comment{}).
+		//Select("*").
+		Order("id").
+		Limit(limit).
+		Offset(offset).
+		Find(&comments)
+
+	for _, comment := range comments {
+		fmt.Printf("id: %d\n", comment.ID)
+		fmt.Printf("name: %s\n", comment.Name)
+		fmt.Printf("body: %s\n", comment.Body)
+
+		fmt.Println("-------------")
+	}
+	return comments
+}
+
+type UserCommentCount struct {
+	UserID       uint `gorm:"column:user_id"`
+	Name         string
+	CommentCount int
+}
+
+func GetUserCommentCount(db *gorm.DB) []UserCommentCount {
+	var result []UserCommentCount
+
+	db.Model(&Comment{}).
+		Select("users.id as user_id, users.name as name, COUNT(*) as comment_count").
+		Joins("LEFT JOIN posts ON comments.post_id = posts.id").
+		Joins("LEFT JOIN users ON posts.user_id = users.id").
+		Group("users.id").
+		Scan(&result)
+
+	for _, user := range result {
+		fmt.Printf("user.id: %d\n", user.UserID)
+		fmt.Printf("user.name: %s\n", user.Name)
+		fmt.Printf("comment_count: %d\n", user.CommentCount)
+		fmt.Println("-------------")
+	}
+
+	return result
+}
+
+type UserCommentPostData struct {
+	UserID      uint `gorm:"column:user_id"`
+	UserName    string
+	PostID      uint `gorm:"column:post_id"`
+	PostTitle   string
+	CommentID   uint `gorm:"column:comment_id"`
+	CommentBody string
+}
+
+func GetUserCommentPostData(db *gorm.DB) []UserCommentPostData {
+	var result []UserCommentPostData
+
+	db.Model(&Comment{}).
+		Select("users.id as user_id, users.name as user_name, posts.id as post_id, posts.title as post_title, comments.id as comment_id, comments.body as comment_body").
+		Joins("LEFT JOIN posts ON comments.post_id = posts.id").
+		Joins("LEFT JOIN users ON posts.user_id = users.id").
+		Scan(&result)
+
+	for _, data := range result {
+		fmt.Printf("user.id: %d\n", data.UserID)
+		fmt.Printf("user.name: %s\n", data.UserName)
+		fmt.Printf("post.id: %d\n", data.PostID)
+		fmt.Printf("post.title: %s\n", data.PostTitle)
+		fmt.Printf("comment.id: %d\n", data.CommentID)
+		fmt.Printf("comment.body: %s\n", data.CommentBody)
+		fmt.Println("-------------")
+	}
+
+	return result
+}
+
+type UserPost struct {
+	UserID    uint
+	UserName  string
+	PostID    uint
+	PostTitle string
+}
+
+func FindTop3PostsPerUser(db *gorm.DB) []UserPost {
+	var result []UserPost
+
+	// SQL-запрос для выбора трех первых постов каждого пользователя
+	query := `
+        SELECT u.id as user_id, u.name as user_name, p.id as post_id, p.title as post_title
+        FROM users u
+        INNER JOIN (
+            SELECT user_id, id, title, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY id) as row_num
+            FROM posts
+        ) p ON u.id = p.user_id AND p.row_num <= 3
+    `
+
+	db.Raw(query).Scan(&result)
+
+	for _, data := range result {
+		fmt.Printf("user.id: %d\n", data.UserID)
+		fmt.Printf("user.name: %s\n", data.UserName)
+		fmt.Printf("post.id: %d\n", data.PostID)
+		fmt.Printf("post.title: %s\n", data.PostTitle)
+		fmt.Println("-------------")
+	}
+
+	return result
+}
+
+type UserCommentMatch struct {
+	UserID       uint
+	UserName     string
+	UserEmail    string
+	CommentID    uint
+	CommentBody  string
+	CommentEmail string
+}
+
+func FindMatchingEmails(db *gorm.DB) []UserCommentMatch {
+	var result []UserCommentMatch
+
+	db.Model(&User{}).
+		Select("users.id as user_id, users.name as user_name, users.email as user_email, comments.id as comment_id, comments.body as comment_body, comments.email as comment_email").
+		Joins("LEFT JOIN comments ON users.email = comments.email"). //INNER
+		Scan(&result)
+
+	for _, data := range result {
+		fmt.Printf("user.id: %d\n", data.UserID)
+		fmt.Printf("user.name: %s\n", data.UserName)
+		fmt.Printf("post.email: %d\n", data.UserEmail)
+		fmt.Printf("comment.id: %d\n", data.CommentID)
+		fmt.Printf("comment.email: %s\n", data.CommentEmail)
+		//fmt.Printf("comment.body: %s\n", data.CommentBody)
+		fmt.Println("-------------")
+	}
+
+	return result
 }
 
 func main() {
@@ -416,10 +584,16 @@ func main() {
 	//usersPart(db, 1)
 	//idList := []uint{1, 3, 5}
 	//usersByIDList(db, idList)
-	//GetUsersWithNoPosts(db) //выбрать пользователей, у которых нет постов,
+	//GetUsersWithNoPosts(db)   //выбрать пользователей, у которых нет постов,
+	//FindUsersWithoutPosts(db) //выбрать пользователей, у которых нет постов,
 	//GetPostCountByUser(db)
 	//GetUserDataWithPostCount(db)
-	GetUsersWithLimitAndOffset(db, 2, 2)
+	//GetUsersWithLimitAndOffset(db, 2, 2)
+	//GetCommentsWithLimitAndOffset(db, 10, 20)
+	FindTop3PostsPerUser(db)
+	//GetUserCommentCount(db)
+	//GetUserCommentPostData(db)
+	//FindMatchingEmails(db)
 
 	fmt.Println("END")
 }
