@@ -27,7 +27,7 @@ func main() {
 
 	// Параметры запроса для третьего запроса
 	params3 := url.Values{}
-	params3.Add("lsort", "asc")
+	params3.Add("sort", "asc")
 	params3.Add("page", "3")
 	url3 := "http://localhost:3000/api/products/backend?" + params3.Encode()
 

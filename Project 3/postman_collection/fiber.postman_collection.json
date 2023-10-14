@@ -85,7 +85,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:3000/api/products/backend?lsort=asc&page=3",
+					"raw": "http://localhost:3000/api/products/backend?sort=asc&page=3",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -98,7 +98,7 @@
 					],
 					"query": [
 						{
-							"key": "lsort",
+							"key": "sort",
 							"value": "asc"
 						},
 						{
