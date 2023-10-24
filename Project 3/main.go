@@ -13,6 +13,7 @@ type MyModel struct {
 	ID       uint   `gorm:"primaryKey"`
 	Name     string `gorm:"column:name"`
 	DeletedAt gorm.DeletedAt // Добавьте это поле для мягкого удаления
+
 }
 
 func main() {
@@ -23,17 +24,18 @@ func main() {
 		panic("Не удалось подключиться к базе данных")
 	}
 
-	//// Автомиграция - создание таблицы, если она не существует
-	//db.AutoMigrate(&MyModel{})
+	// Автомиграция - создание таблицы, если она не существует
+	db.AutoMigrate(&MyModel{})
 
-	// // Создание записей
-	// db.Create(&MyModel{Name: "Name1"})
-	// db.Create(&MyModel{Name: "Name2"})
-	// db.Create(&MyModel{Name: "Name3"})
+	// Создание записей
+	db.Create(&MyModel{Name: "Name1"})
+	db.Create(&MyModel{Name: "Name2"})
+	db.Create(&MyModel{Name: "Name3"})
 
-	// // Мягкое удаление
-	// db.Delete(&MyModel{}, 1) // Удалить запись с ID 1
-	// db.Where("name = ?", "Name3").Delete(&MyModel{})
+	// Мягкое удаление
+	db.Delete(&MyModel{}, 1) // Удалить запись с ID 1
+	db.Where("name = ?", "Name3").Delete(&MyModel{})
+
 
 	fmt.Println("\nFind:\n")
 	{
@@ -56,6 +58,14 @@ func main() {
 			//fmt.Printf("ID: %d, Name: %s, DeletedAt: %s\n", model.ID, model.Name, model.DeletedAt)
 		}
 	}
+
+	fmt.Println("")
+	{	
+		var models []MyModel
+		db.Unscoped().Where("deleted_at IS NOT NULL").Find(&models) // Найти все удаленные записи
+		fmt.Println(models)
+	}
+
 
 	fmt.Println("")
 	{
@@ -105,12 +115,10 @@ func main() {
 	fmt.Println("\nFirst:\n")
 
 
-
-	fmt.Println("")
 	{
 		var model MyModel
 		if err := db.Where("name = ?", "Name3").First(&model).Error; err != nil {
-			if err != nil {
+			if err == gorm.ErrRecordNotFound {
 				fmt.Println("Запись не найдена") // Запись не найдена
 			}
 		}
@@ -121,7 +129,7 @@ func main() {
 	{
 		var model MyModel
 		if err := db.Unscoped().Where("name = ?", "Name3").First(&model).Error; err != nil {
-			if err != nil {
+			if err == gorm.ErrRecordNotFound {
 				fmt.Println("Запись не найдена") // 
 			}
 		}
@@ -133,7 +141,7 @@ func main() {
 	{
 		var model MyModel
 		if err := db.Where("name = ?", "Name2").First(&model).Error; err != nil {
-			if err != nil {
+			if err == gorm.ErrRecordNotFound {
 				fmt.Println("Запись не найдена") //
 			}
 		}
@@ -144,7 +152,7 @@ func main() {
 	{
 		var models []MyModel
 		if err := db.Where("name = ?", "Name2").First(&models).Error; err != nil {
-			if err != nil {
+			if err == gorm.ErrRecordNotFound {
 				fmt.Println("Запись не найдена") //
 			}
 		}
@@ -152,24 +160,24 @@ func main() {
 	}
 
 	fmt.Println("")
-
-
 	{
 		var model MyModel
 		result := db.First(&model,1);
 		if  result.Error != nil {
-			if err != nil {
+			if result.Error == gorm.ErrRecordNotFound {
 				fmt.Println("Запись не найдена") //
 			}
 		}
 		fmt.Println(model) // {0  {0001-01-01 00:00:00 +0000 UTC false}}
+		
+		
 	}
 
 	fmt.Println("")
 	{
 		var model MyModel
 		if err := db.Unscoped().First(&model,1).Error; err != nil {
-			if err != nil {
+			if err == gorm.ErrRecordNotFound {
 				fmt.Println("Запись не найдена") //
 			}
 		}
@@ -181,7 +189,7 @@ func main() {
 	{
 		var model MyModel
 		if err := db.First(&model,2).Error; err != nil {
-			if err != nil {
+			if err == gorm.ErrRecordNotFound {
 				fmt.Println("Запись не найдена") //
 			}
 		}
@@ -192,29 +200,106 @@ func main() {
 
 	fmt.Println("\nTake:\n")
 
-	// fmt.Println("")
-	// {
-	// 	var model MyModel
-	// 	if err := db.Where("name = ?", "Name3").Take(&model).Error; err != nil {
-	// 		if err != nil {
-	// 			fmt.Println("Запись не найдена") // Запись не найдена
-	// 		}
-	// 	}
-	// 	fmt.Println(model) // {0  {0001-01-01 00:00:00 +0000 UTC false}}
-	// }
+	{
+		var model MyModel
+		if err := db.Where("name = ?", "Name3").Take(&model).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				fmt.Println("Запись не найдена") // Запись не найдена
+			}
+		}
+		fmt.Println(model) // {0  {0001-01-01 00:00:00 +0000 UTC false}}
+	}
 
-	// fmt.Println("")
-	// {
-	// 	var model MyModel
-	// 	if err := db.Unscoped().Where("name = ?", "Name3").Take(&model).Error; err != nil {
-	// 		if err != nil {
-	// 			fmt.Println("Запись не найдена") // 
-	// 		}
-	// 	}
-	// 	fmt.Println(model) // {3 Name3 {2023-10-23 17:01:00.072546 +0600 +06 true}}
-	// }
+	fmt.Println("")
+	{
+		var model MyModel
+		if err := db.Unscoped().Where("name = ?", "Name3").Take(&model).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				fmt.Println("Запись не найдена") // 
+			}
+		}
+		fmt.Println(model) // {3 Name3 {2023-10-23 17:01:00.072546 +0600 +06 true}}
+	}
 
+	fmt.Println("")
+	{
+		var models []MyModel
+		if err := db.Where("name = ?", "Name2").Take(&models).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				fmt.Println("Запись не найдена") //
+			}
+		}
+		fmt.Println(models) // [{2 Name2 {0001-01-01 00:00:00 +0000 UTC false}}]
+	}
+
+
+	fmt.Println("")
+	{
+		var model MyModel
+		result := db.Take(&model,1);
+		if  result.Error != nil {
+			if result.Error == gorm.ErrRecordNotFound {
+				fmt.Println("Запись не найдена") //
+			}
+		}
+		fmt.Println(model) // {0  {0001-01-01 00:00:00 +0000 UTC false}}
+	}
+
+	fmt.Println("")
+	{
+		var model MyModel
+		if err := db.Unscoped().Take(&model,1).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				fmt.Println("Запись не найдена") //
+			}
+		}
+		fmt.Println(model) // {1 Name1 {2023-10-23 17:01:00.06926 +0600 +06 true}}
+		fmt.Println(model.DeletedAt) // {2023-10-23 17:01:00.06926 +0600 +06 true}
+	}
+
+
+	fmt.Println("")
+	{
+		var model MyModel
+		if err := db.Take(&model,2).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				fmt.Println("Запись не найдена") //
+			}
+		}
+		fmt.Println(model) // {2 Name2 {0001-01-01 00:00:00 +0000 UTC false}}
+	}
+
+
+	//Востановление
+	{
+
+		var model MyModel
+		if err := db.Unscoped().Where("name = ?", "Name3").Take(&model).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				fmt.Println("Запись не найдена") // 
+			}
+		}else{
+	
+		db.Unscoped().Model(&model).Update("DeletedAt", gorm.Expr("NULL"))
+		}
+
+
+	}
+	
+
+
+
+	// непосредственное удаление из БД
+	db.Unscoped().Delete(&MyModel{}, 1)
+	db.Unscoped().Where("deleted_at IS NOT NULL").Delete(&MyModel{})
+	db.Unscoped().Where("true").Delete(&MyModel{})
+
+
+	// Выполнить SQL-запрос для удаления таблицы
+	db.Exec("DROP TABLE my_models")
 
 	fmt.Println("END")
 }
+
+
 
